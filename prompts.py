@@ -1,7 +1,7 @@
 """Meta-prompts: instructions we give to the LLM so it rewrites the user's prompt.
 
-Each mode has its own "focus" text. All modes share the same base
-instructions and the same output format, so optimizer.py can parse the reply.
+Meta-prompting = writing a prompt whose job is to produce/improve another prompt.
+The final instruction is built from: base rules + mode focus + length + custom note.
 """
 
 # Section markers the LLM must use. optimizer.py splits the reply on these.
@@ -47,10 +47,40 @@ MODE_FOCUS = {
     ),
 }
 
+# One-line description of each mode, shown in the UI.
+MODE_DESCRIPTIONS = {
+    "General": "Everyday prompts: adds a clear goal, context and output format.",
+    "Coding": "Programming tasks: adds language, inputs/outputs, edge cases and tests.",
+    "Writing": "Essays, emails, posts: adds audience, tone, style and length.",
+    "Study": "Learning help: asks for simple steps, examples and a short quiz.",
+}
+
 MODES = list(MODE_FOCUS.keys())
 
+# How long the OPTIMIZED PROMPT should be.
+LENGTH_GUIDE = {
+    "Short": "Keep the optimized prompt short: at most about 80 words, only the essentials.",
+    "Balanced": "Make the optimized prompt moderately detailed: about 100-200 words.",
+    "Detailed": "Make the optimized prompt thorough and detailed: 250 words or more, with examples if useful.",
+}
 
-def build_meta_prompt(mode: str) -> str:
-    """Return the full system instruction for the given mode (falls back to General)."""
+LENGTHS = list(LENGTH_GUIDE.keys())
+DEFAULT_LENGTH = "Balanced"
+
+
+def build_meta_prompt(mode: str, length: str = DEFAULT_LENGTH, custom_instruction: str = "") -> str:
+    """Build the full system instruction.
+
+    Unknown mode/length fall back to General/Balanced. A non-empty
+    custom_instruction is appended as an extra requirement for the rewritten prompt.
+    """
     focus = MODE_FOCUS.get(mode, MODE_FOCUS["General"])
-    return f"{BASE_INSTRUCTIONS}\nMode: {mode}\n{focus}"
+    length_text = LENGTH_GUIDE.get(length, LENGTH_GUIDE[DEFAULT_LENGTH])
+    text = f"{BASE_INSTRUCTIONS}\nMode: {mode}\n{focus}\n\nLength: {length_text}\n"
+    custom_instruction = (custom_instruction or "").strip()
+    if custom_instruction:
+        text += (
+            "\nExtra requirement from the user (apply it to the rewritten prompt; "
+            f"still keep the reply format above): {custom_instruction}\n"
+        )
+    return text

@@ -7,6 +7,7 @@ import csv
 import io
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 
 import config
@@ -14,11 +15,16 @@ import config
 COLUMNS = ["id", "created_at", "mode", "original", "optimized", "explanation"]
 
 
-def _connect(db_path: str | None) -> sqlite3.Connection:
-    """Open a connection (default path from config); rows can be read like dicts."""
+@contextmanager
+def _connect(db_path: str | None):
+    """Open a connection (default path from config), save changes, and always close it."""
     conn = sqlite3.connect(db_path or config.get_db_path())
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn.row_factory = sqlite3.Row  # rows can be read like dicts
+    try:
+        with conn:  # commits on success, rolls back on error
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db(db_path: str | None = None) -> None:
